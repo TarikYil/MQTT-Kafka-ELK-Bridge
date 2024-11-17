@@ -4,7 +4,7 @@ services:
     image: eclipse-mosquitto:latest
     container_name: mqtt_broker
     ports:
-      - "1883:1883"
+      - "${MQTT_PORT}:${MQTT_PORT}"
     volumes:
       - ./mqtt/broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mqtt-data:/mosquitto/data
@@ -18,17 +18,8 @@ services:
     hostname: zookeeper
     container_name: zookeeper
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    labels:
-      maintainer: ino
-      description: message-broker-zookeeper
-      project: pms
-      version: v1.0.0
-      type: backend
-    volumes:
-      - zookeeper-data:/zookeeper/data
-      - zookeeper-datalog:/zookeeper/datalog
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME}
     networks:
       - elk-network
     restart: always
@@ -45,13 +36,13 @@ services:
     hostname: kafka
     container_name: kafka
     ports:
-      - "9092:9092"
+      - "${KAFKA_PORT}:${KAFKA_PORT}"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
+      KAFKA_LISTENERS: ${KAFKA_LISTENERS}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
     volumes:
@@ -62,22 +53,16 @@ services:
 
   kafka-manager:
     image: hlebalbau/kafka-manager:stable
-    container_name: kafka-manager
+    container_name: kafka_manager
     ports:
-      - "9003:9090"
+      - "${KAFKA_MANAGER_PORT}:${KAFKA_MANAGER_PORT}"
     links:
       - zookeeper
       - kafka
     environment:
-      ZK_HOSTS: zookeeper:2181
-      APPLICATION_SECRET: letmein
-      KM_ARGS: -Djava.net.preferIPv4Stack=true
-    labels:
-      maintainer: ino
-      description: message-broker-UI
-      project: pms
-      version: v1.0.0
-      type: backend
+      ZK_HOSTS: ${ZK_HOSTS}
+      APPLICATION_SECRET: ${APPLICATION_SECRET}
+      KM_ARGS: ${KM_ARGS}
     networks:
       - elk-network
     restart: always
@@ -94,7 +79,7 @@ services:
     volumes:
       - ./logstash/pipeline/:/usr/share/logstash/pipeline/
     ports:
-      - "5044:5044"
+      - "${LOGSTASH_PORT}:${LOGSTASH_PORT}"
       - "9600:9600"
     depends_on:
       - elasticsearch
@@ -104,24 +89,24 @@ services:
     restart: unless-stopped
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.1
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION}
     container_name: elasticsearch
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
+      - discovery.type=${DISCOVERY_TYPE}
+      - xpack.security.enabled=${XPACK_SECURITY_ENABLED}
     ports:
-      - "9200:9200"
+      - "${ELASTICSEARCH_PORT}:${ELASTICSEARCH_PORT}"
     networks:
       - elk-network
     restart: unless-stopped
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.9.1
+    image: docker.elastic.co/kibana/kibana:${KIBANA_VERSION}
     container_name: kibana
     ports:
-      - "5601:5601"
+      - "${KIBANA_PORT}:${KIBANA_PORT}"
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_HOSTS=http://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
     depends_on:
       - elasticsearch
     networks:
@@ -148,10 +133,11 @@ services:
     command: ["python", "subscriber.py"]
     depends_on:
       - kafka
+    env_file:
+      - .env
     networks:
       - elk-network
     restart: unless-stopped
-
 
 volumes:
   mqtt-data:
