@@ -1,0 +1,165 @@
+version: '3.8'
+services:
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mqtt/broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mqtt-data:/mosquitto/data
+      - mqtt-logs:/mosquitto/log
+    networks:
+      - elk-network
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.2.1
+    hostname: zookeeper
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    labels:
+      maintainer: ino
+      description: message-broker-zookeeper
+      project: pms
+      version: v1.0.0
+      type: backend
+    volumes:
+      - zookeeper-data:/zookeeper/data
+      - zookeeper-datalog:/zookeeper/datalog
+    networks:
+      - elk-network
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1g"
+        max-file: "5"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.2.1
+    depends_on:
+      - zookeeper
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+    volumes:
+      - kafka-data:/kafka/data
+    networks:
+      - elk-network
+    restart: always
+
+  kafka-manager:
+    image: hlebalbau/kafka-manager:stable
+    container_name: kafka-manager
+    ports:
+      - "9003:9090"
+    links:
+      - zookeeper
+      - kafka
+    environment:
+      ZK_HOSTS: zookeeper:2181
+      APPLICATION_SECRET: letmein
+      KM_ARGS: -Djava.net.preferIPv4Stack=true
+    labels:
+      maintainer: ino
+      description: message-broker-UI
+      project: pms
+      version: v1.0.0
+      type: backend
+    networks:
+      - elk-network
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1g"
+        max-file: "5"
+
+  logstash:
+    build:
+      context: ./logstash
+    container_name: logstash
+    volumes:
+      - ./logstash/pipeline/:/usr/share/logstash/pipeline/
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    depends_on:
+      - elasticsearch
+      - kafka
+    networks:
+      - elk-network
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.1
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    networks:
+      - elk-network
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.9.1
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk-network
+    restart: unless-stopped
+
+  publisher:
+    build:
+      context: ./mqtt
+    container_name: publisher
+    depends_on:
+      - mqtt-broker
+      - kafka
+    env_file:
+      - .env
+    networks:
+      - elk-network
+    restart: unless-stopped
+
+  consumer:
+    build:
+      context: ./mqtt
+    container_name: consumer
+    command: ["python", "subscriber.py"]
+    depends_on:
+      - kafka
+    networks:
+      - elk-network
+    restart: unless-stopped
+
+
+volumes:
+  mqtt-data:
+  mqtt-logs:
+  zookeeper-data:
+  zookeeper-datalog:
+  kafka-data:
+
+networks:
+  elk-network:
+    driver: bridge

@@ -1,0 +1,21 @@
+# Exclude Python virtual environment folder
+venv/
+
+# Exclude environment variable files
+.env
+
+# Byte-compiled files
+*.pyc
+__pycache__/
+
+# Logs
+*.log
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.idea/
+.vscode/
+*.swp
