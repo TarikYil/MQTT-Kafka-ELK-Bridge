@@ -44,8 +44,8 @@ Bu proje, **MQTT** protokolü ile veri akışını başlatıp, **Kafka** ile akt
 
 1. Bu projeyi klonlayın:
    ```bash
-   git clone https://github.com/kullanici_adiniz/mqtt-kafka-elk.git
-   cd mqtt-kafka-elk
+   git clone https://github.com/TarikYil/MQTT-Kafka-ELK-Bridge.git
+   cd MQTT-Kafka-ELK-Bridge
 2. Docker Compose ile konteynerleri başlatın:
     ```bash
     docker-compose up --build -d
