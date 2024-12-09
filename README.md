@@ -60,7 +60,7 @@ Konteynerler ayağa kalktığında, consumer konteyneri Kafka'yı otomatik olara
 - Kibana arayüzüne erişin ve bir Index Pattern oluşturarak verilerinizi görselleştirin.
 
 ## Proje Yapısı
-    ```plaintext
+    
     KAFKA-ELK/
     ├── logstash/
     │   ├── pipeline/
